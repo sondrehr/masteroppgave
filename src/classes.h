@@ -29,7 +29,7 @@ class Detector : public Camera
 {
 public:
     std::vector<int> markerIds;
-    std::vector<std::vector<cv::Point2f>> markerCorners;        ///????
+    std::vector<std::vector<cv::Point2f>> markerCorners;        ///???
     std::vector<Tvec> Tvecs;
 
     ///// add to below later
