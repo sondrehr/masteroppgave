@@ -4,9 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include "sophus/se3.hpp"
 
-struct empty {};
-
-struct Tvec
+struct Rodrigues
 {
     cv::Vec3d rvec;
     cv::Vec3d tvec;
@@ -14,7 +12,7 @@ struct Tvec
 
 struct Distribution
 {
-    std::vector<Sophus::SE3d> poses;    
+    std::vector<Sophus::SE3d> posesSE3;    
     Sophus::SE3d mean;                      
     Sophus::SE3d::Tangent var; 
 };

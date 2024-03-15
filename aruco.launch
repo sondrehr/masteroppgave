@@ -1,0 +1,3 @@
+<launch>
+  <node name="aruco" pkg="subscriber" output="screen" type="aruco"/>
+</launch>

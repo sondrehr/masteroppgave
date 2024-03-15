@@ -8,6 +8,8 @@
 #include "classes.h"
 #include "structs.h"
 
+//#include "boost/filesystem.hpp"
+//std::cout << boost::filesystem::current_path() << std::endl;
 
 int main(int argc, char** argv)
 {
@@ -15,7 +17,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
 
     cv::namedWindow("view");
-    arucoDetector cam("src/detector/params.yaml", 0.096, true);
+    arucoDetector cam("../Desktop/catkin_ws/src/subscriber/params.yaml", 0.096, true);
 
     image_transport::ImageTransport it(nh);
     image_transport::Subscriber sub = it.subscribe("/cam0/cam0", 1, &arucoDetector::imageCallback, &cam);

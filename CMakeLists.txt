@@ -11,13 +11,31 @@ find_package(catkin REQUIRED
   sensor_msgs
   geometry_msgs
   image_transport
+  message_generation		# Need to use custom msg
   OpenCV
   cv_bridge
+  apriltag_ros
+)
+
+# Add custom messages
+add_message_files(
+  FILES
+  myAprilTagDetection.msg
+  myAprilTagDetectionArray.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs		# my message depends on this
 )
 
 
 # To use rosrun
-catkin_package()
+catkin_package(
+  CATKIN_DEPENDS
+    message_runtime		# Need to use custom msg
+)
 
 # Include .h files
 include_directories(include

@@ -2,6 +2,7 @@
 #define FUNCTIONS_H
 
 #include <ros/ros.h>
+#include <cmath>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
@@ -11,12 +12,15 @@
 #include "classes.h"
 
 
-void detectMarkersAruco(arucoDetector* detector, cv::Mat& inputImage);
-
+void getMarkersAruco(arucoDetector* detector, cv::Mat& inputImage);
+void getPoseAruco(arucoDetector* detector);
 void drawMarkersAruco(arucoDetector* detector, cv::Mat& outputImage);
+void getDistributionAruco(arucoDetector* detector, int nPoses);
 
-void estimatePoseAruco(arucoDetector* detector);
-
+void getMarkersApril(aprilDetector* detector, const apriltag_ros::AprilTagDetectionArrayConstPtr& detections);
+void getPoseApril(aprilDetector* detector, const apriltag_ros::AprilTagDetectionArrayConstPtr& detections);
+void drawMarkersApril(aprilDetector* detector, cv::Mat& outputImage);
+void getDistributionApril(aprilDetector* detector, int nPoses);
 
 
 #endif

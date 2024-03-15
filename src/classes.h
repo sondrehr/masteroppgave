@@ -9,6 +9,13 @@
 
 #include "structs.h"
 
+/*
+#include "subscriber/AprilTagDetectionArray.h"
+#include "subscriber/AprilTagDetection.h"*/
+
+#include "apriltag_ros/AprilTagDetectionArray.h"
+#include "apriltag_ros/AprilTagDetection.h"
+
 
 class Camera
 {
@@ -29,11 +36,10 @@ class Detector : public Camera
 {
 public:
     std::vector<int> markerIds;
-    std::vector<std::vector<cv::Point2f>> markerCorners;        ///???
-    std::vector<Tvec> Tvecs;
+    std::vector<std::vector<cv::Point2f>> markerCorners;
 
-    ///// add to below later
-    std::vector<geometry_msgs::PoseWithCovarianceStamped> poses;
+    std::deque<std::vector<geometry_msgs::PoseWithCovarianceStamped>> posesCov;
+    Distribution distribution;
 
     Detector(std::string filename) : Camera(filename){};
 };
@@ -42,16 +48,13 @@ public:
 
 // Aruco
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//template <bool T>
 class arucoDetector : public Detector
 {
 public:
     cv::Ptr<cv::aruco::Dictionary> dictionary;
-    float markerLength;
-
+    
     bool dist;
-    //std::conditional<T, Distribution, empty> distribution;
-    Distribution distribution;  
+    float markerLength;  
     
     void imageCallback(const sensor_msgs::ImageConstPtr& msg);
     arucoDetector(std::string filename, float markerLength, bool dist) : Detector(filename)
@@ -67,9 +70,15 @@ public:
 class aprilDetector : public Detector
 {
 public:
-    
-    void imageCallback(const sensor_msgs::ImageConstPtr& msg);
-    aprilDetector(std::string filename, float markerLength, bool dist) : Detector(filename){};
+    bool dist;
+    float markerLength;
+
+    void imageCallback(const sensor_msgs::ImageConstPtr& msg, const apriltag_ros::AprilTagDetectionArrayConstPtr& detections);
+    aprilDetector(std::string filename, float markerLength, bool dist) : Detector(filename)
+    {
+        this->dist = dist;
+        this->markerLength = markerLength;
+    }
 };
 
 
