@@ -1,7 +1,5 @@
 #include "classes.h"
 #include "functions.h"
-#include "lie.h"
-
 
 
 void arucoDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg)
@@ -9,7 +7,7 @@ void arucoDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg)
     cv::Mat inputImage = cv_bridge::toCvShare(msg, "bgr8")->image;
     cv::Mat outputImage = inputImage.clone();
 
-    getMarkersAruco(this, inputImage);
+    detectMarkersAruco(this, inputImage);
     getPoseAruco(this); 
     drawMarkersAruco(this, outputImage);
     if (dist) {getDistributionAruco(this, 50);}
@@ -19,7 +17,7 @@ void arucoDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg)
 }
 
 
-void aprilDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg, const apriltag_ros::AprilTagDetectionArrayConstPtr& detections)
+void aprilDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg, const subscriber::myAprilTagDetectionArrayConstPtr& detections)
 {
     cv::Mat inputImage = cv_bridge::toCvShare(msg, "bgr8")->image;
     cv::Mat outputImage = inputImage.clone();

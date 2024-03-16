@@ -14,7 +14,6 @@ find_package(catkin REQUIRED
   message_generation		# Need to use custom msg
   OpenCV
   cv_bridge
-  apriltag_ros
 )
 
 # Add custom messages

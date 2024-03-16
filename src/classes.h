@@ -8,13 +8,13 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
 #include "structs.h"
+//#include "apriltag_ros/AprilTagDetectionArray.h"
+//#include "apriltag_ros/AprilTagDetection.h"
 
-/*
-#include "subscriber/AprilTagDetectionArray.h"
-#include "subscriber/AprilTagDetection.h"*/
 
-#include "apriltag_ros/AprilTagDetectionArray.h"
-#include "apriltag_ros/AprilTagDetection.h"
+#include "subscriber/myAprilTagDetectionArray.h"
+#include "subscriber/myAprilTagDetection.h"
+
 
 
 class Camera
@@ -73,7 +73,7 @@ public:
     bool dist;
     float markerLength;
 
-    void imageCallback(const sensor_msgs::ImageConstPtr& msg, const apriltag_ros::AprilTagDetectionArrayConstPtr& detections);
+    void imageCallback(const sensor_msgs::ImageConstPtr& msg, const subscriber::myAprilTagDetectionArrayConstPtr& detections);
     aprilDetector(std::string filename, float markerLength, bool dist) : Detector(filename)
     {
         this->dist = dist;

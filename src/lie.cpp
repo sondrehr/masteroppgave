@@ -159,11 +159,11 @@ void getVar(Distribution &distribution)
 
 
 
-            /*
-            std::vector<vecs> avgVecs = {sophus2vecs(detector->avgPose)};
-            detector->Vecs = avgVecs;
+/*
+std::vector<vecs> avgVecs = {sophus2vecs(detector->avgPose)};
+detector->Vecs = avgVecs;
 
-            cv::Mat avgImage = inputImage.clone();
-            drawMarkersAruco(detector, avgImage);
-            cv::imwrite("avgImage.png", avgImage);
-            */
+cv::Mat avgImage = inputImage.clone();
+drawMarkersAruco(detector, avgImage);
+cv::imwrite("avgImage.png", avgImage);
+*/

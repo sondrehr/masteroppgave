@@ -1,11 +1,12 @@
 #include "functions.h"
 #include "lie.h"
+#include "classes.h"
 
 
-void getMarkersAruco(arucoDetector* detector, cv::Mat& inputImage)
+void detectMarkersAruco(arucoDetector* detector, cv::Mat& inputImage)
 {
     cv::aruco::detectMarkers(inputImage, detector->dictionary, detector->markerCorners, detector->markerIds);
-
+    
     if (detector->posesCov.size() == 50) {detector->posesCov.pop_front();}
 
     detector->posesCov.push_back(std::vector<geometry_msgs::PoseWithCovarianceStamped>());
@@ -68,7 +69,7 @@ void getDistributionAruco(arucoDetector* detector, int nPoses)
     }
 }
 
-void getMarkersApril(aprilDetector* detector, const apriltag_ros::AprilTagDetectionArrayConstPtr& detections)
+void getMarkersApril(aprilDetector* detector, const subscriber::myAprilTagDetectionArrayConstPtr& detections)
 {
     if (detector->posesCov.size() == 50) {detector->posesCov.pop_front();}
 
@@ -82,7 +83,7 @@ void getMarkersApril(aprilDetector* detector, const apriltag_ros::AprilTagDetect
         detector->markerIds.at(i) = detections->detections.at(i).id[0];
     }   
 }
-void getPoseApril(aprilDetector* detector, const apriltag_ros::AprilTagDetectionArrayConstPtr& detections)
+void getPoseApril(aprilDetector* detector, const subscriber::myAprilTagDetectionArrayConstPtr& detections)
 {
     cv::Mat objPoints(4, 1, CV_32FC3);
     objPoints.ptr<cv::Vec3f>(0)[0] = cv::Vec3f(-detector->markerLength/2, detector->markerLength/2, 0);
