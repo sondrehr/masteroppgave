@@ -17,7 +17,7 @@ void arucoDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg)
 }
 
 
-void aprilDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg, const subscriber::myAprilTagDetectionArrayConstPtr& detections)
+void aprilDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg, const precision_landing::myAprilTagDetectionArrayConstPtr& detections)
 {
     cv::Mat inputImage = cv_bridge::toCvShare(msg, "bgr8")->image;
     cv::Mat outputImage = inputImage.clone();

@@ -1,3 +1,3 @@
 <launch>
-  <node name="april" pkg="subscriber" output="screen" type="april"/>
+  <node name="april" pkg="precision_landing" output="screen" type="april"/>
 </launch>

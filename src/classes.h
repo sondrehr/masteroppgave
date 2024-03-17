@@ -12,8 +12,8 @@
 //#include "apriltag_ros/AprilTagDetection.h"
 
 
-#include "subscriber/myAprilTagDetectionArray.h"
-#include "subscriber/myAprilTagDetection.h"
+#include "precision_landing/myAprilTagDetectionArray.h"
+#include "precision_landing/myAprilTagDetection.h"
 
 
 
@@ -73,7 +73,7 @@ public:
     bool dist;
     float markerLength;
 
-    void imageCallback(const sensor_msgs::ImageConstPtr& msg, const subscriber::myAprilTagDetectionArrayConstPtr& detections);
+    void imageCallback(const sensor_msgs::ImageConstPtr& msg, const precision_landing::myAprilTagDetectionArrayConstPtr& detections);
     aprilDetector(std::string filename, float markerLength, bool dist) : Detector(filename)
     {
         this->dist = dist;

@@ -69,7 +69,7 @@ void getDistributionAruco(arucoDetector* detector, int nPoses)
     }
 }
 
-void getMarkersApril(aprilDetector* detector, const subscriber::myAprilTagDetectionArrayConstPtr& detections)
+void getMarkersApril(aprilDetector* detector, const precision_landing::myAprilTagDetectionArrayConstPtr& detections)
 {
     if (detector->posesCov.size() == 50) {detector->posesCov.pop_front();}
 
@@ -83,7 +83,7 @@ void getMarkersApril(aprilDetector* detector, const subscriber::myAprilTagDetect
         detector->markerIds.at(i) = detections->detections.at(i).id[0];
     }   
 }
-void getPoseApril(aprilDetector* detector, const subscriber::myAprilTagDetectionArrayConstPtr& detections)
+void getPoseApril(aprilDetector* detector, const precision_landing::myAprilTagDetectionArrayConstPtr& detections)
 {
     cv::Mat objPoints(4, 1, CV_32FC3);
     objPoints.ptr<cv::Vec3f>(0)[0] = cv::Vec3f(-detector->markerLength/2, detector->markerLength/2, 0);

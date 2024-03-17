@@ -15,8 +15,8 @@ void getPoseAruco(arucoDetector* detector);
 void drawMarkersAruco(arucoDetector* detector, cv::Mat& outputImage);
 void getDistributionAruco(arucoDetector* detector, int nPoses);
 
-void getMarkersApril(aprilDetector* detector, const subscriber::myAprilTagDetectionArrayConstPtr& detections);
-void getPoseApril(aprilDetector* detector, const subscriber::myAprilTagDetectionArrayConstPtr& detections);
+void getMarkersApril(aprilDetector* detector, const precision_landing::myAprilTagDetectionArrayConstPtr& detections);
+void getPoseApril(aprilDetector* detector, const precision_landing::myAprilTagDetectionArrayConstPtr& detections);
 void drawMarkersApril(aprilDetector* detector, cv::Mat& outputImage);
 void getDistributionApril(aprilDetector* detector, int nPoses);
 

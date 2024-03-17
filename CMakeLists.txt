@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(subscriber)
+project(precision_landing)
 
 set(OpenCV_DIR /usr/local/lib/cmake/opencv4)
 
@@ -54,4 +54,7 @@ target_link_libraries(april
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
+
+
+
 
