@@ -12,9 +12,11 @@ struct Rodrigues
 
 struct Distribution
 {
-    std::vector<Sophus::SE3d> posesSE3;    
+    std::deque<Sophus::SE3d> posesSE3;    
+    
     Sophus::SE3d mean;                      
     Sophus::SE3d::Tangent var; 
+    Sophus::SE3d::Tangent stdDev;
 };
 
 #endif

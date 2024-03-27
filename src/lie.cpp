@@ -155,15 +155,5 @@ void getVar(Distribution &distribution)
     }
     
     distribution.var /= nPoses-1;
+    distribution.stdDev = distribution.var.cwiseSqrt();
 }
-
-
-
-/*
-std::vector<vecs> avgVecs = {sophus2vecs(detector->avgPose)};
-detector->Vecs = avgVecs;
-
-cv::Mat avgImage = inputImage.clone();
-drawMarkersAruco(detector, avgImage);
-cv::imwrite("avgImage.png", avgImage);
-*/

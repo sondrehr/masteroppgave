@@ -14,13 +14,18 @@ find_package(catkin REQUIRED
   message_generation		# Need to use custom msg
   OpenCV
   cv_bridge
+  tf2_ros
 )
+
+find_package(Sophus REQUIRED)
 
 # Add custom messages
 add_message_files(
   FILES
+  distribution.msg
   myAprilTagDetection.msg
   myAprilTagDetectionArray.msg
+  #distribution.msg
 )
 
 generate_messages(
@@ -42,18 +47,28 @@ include_directories(include
   ${OpenCV_INCLUDE_DIRS}
 )
 
-# Get .exe file
-add_executable(aruco src/aruco.cpp src/functions.cpp src/lie.cpp src/classes.cpp)
+# Get .exe files
+add_executable(aruco src/aruco.cpp src/funcs.cpp src/lie.cpp src/classes.cpp)
+add_dependencies(aruco precision_landing_generate_messages_cpp)
 target_link_libraries(aruco 
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
 
-add_executable(april src/april.cpp src/functions.cpp src/lie.cpp src/classes.cpp)
+add_executable(april src/april.cpp src/funcs.cpp src/lie.cpp src/classes.cpp)
+add_dependencies(april precision_landing_generate_messages_cpp)
 target_link_libraries(april
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
 )
+
+add_executable(rectify src/rectify.cpp src/funcs.cpp src/lie.cpp src/classes.cpp)
+target_link_libraries(rectify
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+)
+
+
 
 
 

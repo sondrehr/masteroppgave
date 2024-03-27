@@ -1,3 +1,0 @@
-<launch>
-  <node name="april" pkg="precision_landing" output="screen" type="april"/>
-</launch>

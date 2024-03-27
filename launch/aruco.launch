@@ -1,0 +1,23 @@
+<launch>
+  <!-- include blackfly launch file -->
+  <include file="$(find blackfly)/launch/1_camera.launch"/>
+
+  <node name="rectify" pkg="precision_landing" output="screen" type="rectify"/>
+  <node name="aruco" pkg="precision_landing" output="screen" type="aruco">
+    <!-- Aruco dictionary type. NB only 4x4_50, 5x5_50 and 6x6_50. Not 4x4_100 etc... -->
+    <!-- DICT_nxn_m: n is the number of squares in the marker's row/column, m is the number of bits per dimension. 4x4, 5x5, 6x6 -->
+    <param name="dictionary" value="6X6"/>
+
+    <param name="markerSize" value="0.075"/>                      <!-- Size of the marker in meters -->
+    <param name="estimateState" value="true"/>                    <!-- Estimate pose of the marker using KF -->
+
+    <!-- Publish topics -->
+    <param name="publishImage" value="true"/>                     <!-- Publish image with pose. Faster when off -->
+    <param name="publishDistribution" value="true"/>              <!-- Publish distribution of the mean pose in the tangent space -->  
+    <param name="publishTrajectory" value="true"/>                <!-- Publish planned trajectory -->
+    <param name="publishPose" value="true"/>                      <!-- Publish pose of the marker -->
+
+    <!-- Path to the camera calibration file -->
+    <param name="cameraParams" value="../Desktop/catkin_ws/src/precision_landing/params.yaml" type="str"/>
+  </node>
+</launch>

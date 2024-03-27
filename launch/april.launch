@@ -1,0 +1,26 @@
+<launch>
+  <!-- include blackfly launch file -->
+  <include file="$(find blackfly)/launch/1_camera.launch"/>
+
+  <!-- include apriltag_ros launch file -->
+  <include file="$(find apriltag_ros)/launch/continuous_detection.launch"/>
+
+  <node name="rectify" pkg="precision_landing" output="screen" type="rectify"/>
+  <node name="april" pkg="precision_landing" output="screen" type="april">
+    
+    
+    <param name="family" value="tagStandard41h12"/>
+
+    <param name="markerSize" value="0.056"/>                      <!-- Size of the marker in meters -->
+    <param name="estimateState" value="true"/>                    <!-- Estimate pose of the marker using KF -->
+
+    <!-- Publish topics -->
+    <param name="publishImage" value="true"/>                     <!-- Publish image with pose. Faster when off -->
+    <param name="publishDistribution" value="true"/>              <!-- Publish distribution of the mean pose in the tangent space -->  
+    <param name="publishTrajectory" value="true"/>                <!-- Publish planned trajectory -->
+    <param name="publishPose" value="true"/>                      <!-- Publish pose of the marker -->
+    
+    <!-- Path to the camera calibration file -->
+    <param name="cameraParams" value="../Desktop/catkin_ws/src/precision_landing/params.yaml" type="str"/>
+  </node>
+</launch>

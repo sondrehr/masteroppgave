@@ -5,7 +5,7 @@
 #include "sophus/se3.hpp"
 #include <iostream>
 
-#include "functions.h"
+#include "funcs.h"
 #include "classes.h"
 
 Sophus::SE3d rodrigues2sophus(Rodrigues Tvecs);

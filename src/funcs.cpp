@@ -1,13 +1,17 @@
-#include "functions.h"
+#include "funcs.h"
 #include "lie.h"
 #include "classes.h"
 
+#include <precision_landing/distribution.h>
 
-void detectMarkersAruco(arucoDetector* detector, cv::Mat& inputImage)
+
+void detectMarkersAruco(arucoDetector* detector, cv::Mat& outputImage)
 {
-    cv::aruco::detectMarkers(inputImage, detector->dictionary, detector->markerCorners, detector->markerIds);
+    cv::aruco::detectMarkers(outputImage, detector->dictionary, detector->markerCorners, detector->markerIds);
     
-    if (detector->posesCov.size() == 50) {detector->posesCov.pop_front();}
+    getBeta(detector);
+
+    if (detector->posesCov.size() == 100) {detector->posesCov.pop_front();}
 
     detector->posesCov.push_back(std::vector<geometry_msgs::PoseWithCovarianceStamped>());
     detector->posesCov.back().resize(detector->markerIds.size());
@@ -23,13 +27,11 @@ void getPoseAruco(arucoDetector* detector)
     for (size_t i = 0; i < detector->markerIds.size(); i++)
     {   
         Rodrigues Tvec;
-        cv::solvePnP(objPoints, detector->markerCorners.at(i), detector->K, detector->D, Tvec.rvec, Tvec.tvec);
-        //cv::solvePnPRefineLM(objPoints, detector->markerCorners.at(i), detector->K, detector->D, Tvec.rvec, Tvec.tvec);
-        //cv::solvePnPRefineVVS(objPoints, detector->markerCorners.at(i), detector->K, detector->D, Tvec.rvec, Tvec.tvec);
+        cv::solvePnP(objPoints, detector->markerCorners.at(i), detector->K, cv::Mat::zeros(5, 1, CV_32F), Tvec.rvec, Tvec.tvec);
 
         cv::Mat J;
         std::vector<cv::Point2f> projectedPoints;
-        cv::projectPoints(objPoints, Tvec.rvec, Tvec.tvec, detector->K, detector->D, projectedPoints, J);
+        cv::projectPoints(objPoints, Tvec.rvec, Tvec.tvec, detector->K, cv::Mat::zeros(5, 1, CV_32F), projectedPoints, J);
         cv::Mat sigma = cv::Mat(J.t() * J, cv::Rect(0, 0, 6, 6)).inv();         // 6x6 to only get the cov matrix of R and t
 
         detector->posesCov.back().at(i) = rodrigues2quaternion(Tvec);
@@ -42,46 +44,44 @@ void getPoseAruco(arucoDetector* detector)
                                                           sigma.at<double>(5, 0), sigma.at<double>(5, 1), sigma.at<double>(5, 2), sigma.at<double>(5, 3), sigma.at<double>(5, 4), sigma.at<double>(5, 5)};
     }
 }
-void drawMarkersAruco(arucoDetector* detector, cv::Mat& outputImage)
-{
-    cv::aruco::drawDetectedMarkers(outputImage, detector->markerCorners, detector->markerIds);
-    for (size_t i = 0; i < detector->markerIds.size(); i++)
-    {
-        Rodrigues Tvec = quaternion2rodrigues(detector->posesCov.back().at(i));
-        cv::aruco::drawAxis(outputImage, detector->K, detector->D, Tvec.rvec, Tvec.tvec, detector->markerLength*1.5);
-    }
-}
-void getDistributionAruco(arucoDetector* detector, int nPoses)
-{
-    if (detector->markerIds.size() != 1) {return;}
 
-    Sophus::SE3d thisPose = quaternion2sophus(detector->posesCov.back().at(0));
-    detector->distribution.posesSE3.push_back(thisPose);
-
-    if (detector->distribution.posesSE3.size() == nPoses)
-    {
-        getMean(detector->distribution, 50);
-        getVar(detector->distribution);
-        detector->dist = false;
-
-        std::cout << "Mean: \n" << detector->distribution.mean.matrix() << std::endl;
-        std::cout << "\nVariance: \n" << detector->distribution.var << std::endl;
-    }
-}
 
 void getMarkersApril(aprilDetector* detector, const precision_landing::myAprilTagDetectionArrayConstPtr& detections)
 {
-    if (detector->posesCov.size() == 50) {detector->posesCov.pop_front();}
-
-    detector->posesCov.push_back(std::vector<geometry_msgs::PoseWithCovarianceStamped>());
-    detector->posesCov.back().resize(detections->detections.size());
-
-
     detector->markerIds.resize(detections->detections.size());
     for (size_t i = 0; i < detections->detections.size(); i++)
     {
         detector->markerIds.at(i) = detections->detections.at(i).id[0];
-    }   
+    }  
+
+    /// maybe delete
+    detector->markerCorners.resize(detections->detections.size());
+    for (size_t i = 0; i < detections->detections.size(); i++)
+    {
+        Rodrigues Tvec = quaternion2rodrigues(detections->detections.at(i).pose);
+        cv::Mat objPoints(4, 1, CV_32FC3);
+        std::vector<cv::Point2f> projectedPoints;
+        objPoints.ptr<cv::Vec3f>(0)[0] = cv::Vec3f(-detector->markerLength/2, detector->markerLength/2, 0);
+        objPoints.ptr<cv::Vec3f>(0)[1] = cv::Vec3f(detector->markerLength/2, detector->markerLength/2, 0);
+        objPoints.ptr<cv::Vec3f>(0)[2] = cv::Vec3f(detector->markerLength/2, -detector->markerLength/2, 0);
+        objPoints.ptr<cv::Vec3f>(0)[3] = cv::Vec3f(-detector->markerLength/2, -detector->markerLength/2, 0);
+
+        cv::projectPoints(objPoints, Tvec.rvec, Tvec.tvec, detector->K, cv::Mat::zeros(5, 1, CV_32F), projectedPoints);
+
+        detector->markerCorners.at(i).resize(4);
+        for (size_t j = 0; j < 4; j++)
+        {
+            detector->markerCorners.at(i).at(j).x = projectedPoints.at(j).x;
+            detector->markerCorners.at(i).at(j).y = projectedPoints.at(j).y;
+        }
+    }
+
+    getBeta(detector);
+
+    if (detector->posesCov.size() == 100) {detector->posesCov.pop_front();}
+
+    detector->posesCov.push_back(std::vector<geometry_msgs::PoseWithCovarianceStamped>());
+    detector->posesCov.back().resize(detections->detections.size()); 
 }
 void getPoseApril(aprilDetector* detector, const precision_landing::myAprilTagDetectionArrayConstPtr& detections)
 {
@@ -98,7 +98,7 @@ void getPoseApril(aprilDetector* detector, const precision_landing::myAprilTagDe
 
         cv::Mat J;
         std::vector<cv::Point2f> projectedPoints;
-        cv::projectPoints(objPoints, Tvec.rvec, Tvec.tvec, detector->K, detector->D, projectedPoints, J);
+        cv::projectPoints(objPoints, Tvec.rvec, Tvec.tvec, detector->K, cv::Mat::zeros(5, 1, CV_32F), projectedPoints, J);
         cv::Mat sigma = cv::Mat(J.t() * J, cv::Rect(0, 0, 6, 6)).inv();         // 6x6 to only get the cov matrix of R and t
 
         detector->posesCov.back().at(i).pose.pose.position.x = detections->detections.at(i).pose.pose.pose.position.x;
@@ -117,29 +117,5 @@ void getPoseApril(aprilDetector* detector, const precision_landing::myAprilTagDe
                                                           sigma.at<double>(5, 0), sigma.at<double>(5, 1), sigma.at<double>(5, 2), sigma.at<double>(5, 3), sigma.at<double>(5, 4), sigma.at<double>(5, 5)};
     }
 }
-void drawMarkersApril(aprilDetector* detector, cv::Mat& outputImage)
-{
-    for (size_t i = 0; i < detector->posesCov.back().size(); i++)
-    {
-        Rodrigues Tvec = quaternion2rodrigues(detector->posesCov.back().at(i));
-        cv::aruco::drawAxis(outputImage, detector->K, detector->D, Tvec.rvec, Tvec.tvec, detector->markerLength*1.5);
-    }
-}
-void getDistributionApril(aprilDetector* detector, int nPoses)
-{   
-    if (detector->markerIds.size() != 1) {return;}
 
-    Sophus::SE3d thisPose = quaternion2sophus(detector->posesCov.back().at(0));
-    detector->distribution.posesSE3.push_back(thisPose);
-
-    if (detector->posesCov.size() == nPoses)
-    {
-        getMean(detector->distribution, 50);
-        getVar(detector->distribution);
-        detector->dist = false;
-
-        std::cout << "Mean: \n" << detector->distribution.mean.matrix() << std::endl;
-        std::cout << "\nVariance: \n" << detector->distribution.var << std::endl;
-    }
-}
 

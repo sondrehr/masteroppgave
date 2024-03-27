@@ -1,6 +1,8 @@
 #ifndef CLASSES_H
 #define CLASSES_H
 
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
 #include <cv_bridge/cv_bridge.h>
@@ -8,9 +10,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
 #include "structs.h"
-//#include "apriltag_ros/AprilTagDetectionArray.h"
-//#include "apriltag_ros/AprilTagDetection.h"
-
+#include "sophus/se3.hpp"
 
 #include "precision_landing/myAprilTagDetectionArray.h"
 #include "precision_landing/myAprilTagDetection.h"
@@ -35,11 +35,25 @@ public:
 class Detector : public Camera
 {
 public:
+    ros::Publisher                       pubDist;
+    image_transport::Publisher           pubImg;
+    image_transport::Subscriber          subImg;
+
+    bool estimateState;
+    bool publishImage;
+    bool publishDistribution;
+    bool publishPose;
+    bool publishTrajectory;
+
     std::vector<int> markerIds;
     std::vector<std::vector<cv::Point2f>> markerCorners;
 
+    std::vector<geometry_msgs::PoseWithCovarianceStamped> estimatedPoses;
     std::deque<std::vector<geometry_msgs::PoseWithCovarianceStamped>> posesCov;
     Distribution distribution;
+
+    float beta;
+    float markerLength;
 
     Detector(std::string filename) : Camera(filename){};
 };
@@ -52,17 +66,9 @@ class arucoDetector : public Detector
 {
 public:
     cv::Ptr<cv::aruco::Dictionary> dictionary;
-    
-    bool dist;
-    float markerLength;  
-    
+
     void imageCallback(const sensor_msgs::ImageConstPtr& msg);
-    arucoDetector(std::string filename, float markerLength, bool dist) : Detector(filename)
-    {
-        dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_50);
-        this->markerLength = markerLength;
-        this->dist = dist;
-    }
+    arucoDetector(ros::NodeHandle &nh);
 };
 
 // April
@@ -70,15 +76,8 @@ public:
 class aprilDetector : public Detector
 {
 public:
-    bool dist;
-    float markerLength;
-
     void imageCallback(const sensor_msgs::ImageConstPtr& msg, const precision_landing::myAprilTagDetectionArrayConstPtr& detections);
-    aprilDetector(std::string filename, float markerLength, bool dist) : Detector(filename)
-    {
-        this->dist = dist;
-        this->markerLength = markerLength;
-    }
+    aprilDetector(ros::NodeHandle &nh);
 };
 
 

@@ -1,3 +1,0 @@
-<launch>
-  <node name="aruco" pkg="precision_landing" output="screen" type="aruco"/>
-</launch>
