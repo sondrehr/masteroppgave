@@ -4,6 +4,8 @@ import numpy as np
 import cv2
 import glob
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 def calibrate_camera():
     chessboard_size = (9, 7)
@@ -21,17 +23,99 @@ def calibrate_camera():
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
         ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+
         if ret == True:
             object_points_list.append(object_points)
             image_points_list.append(corners)
+
+    print("Image size: ", image.shape[::-1])
             
     print("Calibrating the camera...")
 
-    ret, camera_matrix, distortion_coefficients, rvecs, tvecs = cv2.calibrateCamera(
+    #Calibrate the camera getting the std deviation
+    ret, camera_matrix, distortion_coefficients, rvecs, tvecs, stdDeviationsIntrinsics, stdDeviationsExtrinsics, perViewErrors = cv2.calibrateCameraExtended(
         object_points_list, image_points_list, gray.shape[::-1], None, None)
     
+    #Obtain 3D scatter plot of the calibration points
+    ##############################################################################################################
+    scatter_points = []
+    origin = np.array([0, 0, 0]).reshape(1, 1, 3)
+    scatter_points.append(origin)
+    for i in range(len(object_points_list)):
+        R = cv2.Rodrigues(rvecs[i])[0]
+        t = tvecs[i]
+        T = np.zeros((4, 4))
+        T[:3, :3] = R
+        T[:3, 3] = t.reshape(3)
+        T[3, 3] = 1
+
+        scatter_points.append(cv2.perspectiveTransform(object_points_list[i].reshape(-1, 1, 3), T))
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    for i in range(len(scatter_points)):
+        ax.scatter(scatter_points[i][:,0,0], scatter_points[i][:,0,1], scatter_points[i][:,0,2])
+    plt.show()
+
+
+    #Get the reprojection errors
+    ##############################################################################################################
+    total_error = 0
+    per_image_errors = []
+    all_errors = []
+
+    test = []
+
+    for i in range(len(object_points_list)):
+        image_points, _ = cv2.projectPoints(object_points_list[i], rvecs[i], tvecs[i], camera_matrix, distortion_coefficients)
+        error = cv2.norm(image_points_list[i], image_points, cv2.NORM_L2) / len(image_points)
+        total_error += error
+        per_image_errors.append(error)
+
+
+        error_test = (image_points_list[i] - image_points).reshape(1, -1)
+        error_squared = np.square(error_test)
+        error_squared_sum = np.sum(error_squared)
+        error_root = np.sqrt(error_squared_sum)
+        
+        print("Error        : ", error_root/len(image_points))
+        print("Error l2     : ", error)
+
+        error_rms = np.sqrt(np.sum(error_squared)/len(image_points))
+
+        print("Error rms    : ", error_rms)
+        print("perViewErrors: ", perViewErrors[i][0])
+
+        for j in range(len(image_points)):
+            all_errors.append(cv2.norm(image_points_list[i][j], image_points[j], cv2.NORM_L2))
+        
+
+    ## Per point
+    print("Mean reprojection error per point: ", np.mean(all_errors))
+    print("std deviation per point: ", np.std(all_errors))
+    print("Max per point error: ", np.max(all_errors))
+
+    ## Per image
+    print("Mean reprojection error per image: ", total_error / len(object_points_list))
+    print("std deviation per image: ", np.std(per_image_errors))
+    print("Max per image error: ", np.max(per_image_errors))
+
+    #Get the perViewErrors
+    ##############################################################################################################
+    print("Mean per view error: ", np.mean(perViewErrors))
+    print("std deviation per view error: ", np.std(perViewErrors))
+    print("Max per view error: ", np.max(perViewErrors)) 
+
+    plt.plot(perViewErrors)
+    plt.show()
+    
+
+    # Save the camera matrix and distortion coefficients to a file
+    ##############################################################################################################
     print("\n\n\nCamera matrix: \n" + str(camera_matrix))
     print("Distortion coefficients: \n" + str(distortion_coefficients))
+
+    print("\n\n\nStandard deviation of intrinsics: \n" + str(stdDeviationsIntrinsics))
     
     data = {
         "image_width": image.shape[1],

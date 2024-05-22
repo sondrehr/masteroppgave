@@ -15,6 +15,7 @@ find_package(catkin REQUIRED
   OpenCV
   cv_bridge
   tf2_ros
+  trajectory_msgs
 )
 
 find_package(Sophus REQUIRED)
@@ -25,12 +26,18 @@ add_message_files(
   distribution.msg
   myAprilTagDetection.msg
   myAprilTagDetectionArray.msg
-  #distribution.msg
+  trajectoryInterpolated.msg
+)
+
+add_service_files(
+  FILES
+  trajectory.srv
 )
 
 generate_messages(
   DEPENDENCIES
   std_msgs
+  trajectory_msgs
   geometry_msgs		# my message depends on this
 )
 

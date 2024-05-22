@@ -151,7 +151,13 @@ void getVar(Distribution &distribution)
     for (int i = 0; i < nPoses; i++)
     {
         Sophus::SE3d::Tangent error = (distribution.mean.inverse() * distribution.posesSE3.at(i)).log();
+
         distribution.var += error.cwiseProduct(error);
+
+        //Only calulates the variance part of the covariance matrix since this is only used for comparison
+        //If want full covariance matrix, change the dimensions of distribution.var & uncomment the following line
+        
+        //distribution.var += error * error.transpose();
     }
     
     distribution.var /= nPoses-1;

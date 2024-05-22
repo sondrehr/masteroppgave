@@ -35,25 +35,27 @@ public:
 class Detector : public Camera
 {
 public:
-    ros::Publisher                       pubDist;
-    image_transport::Publisher           pubImg;
-    image_transport::Subscriber          subImg;
+    ros::NodeHandle                      nh;
 
-    bool estimateState;
-    bool publishImage;
-    bool publishDistribution;
-    bool publishPose;
-    bool publishTrajectory;
+    image_transport::Subscriber          subImg;
+    image_transport::Publisher           pubImg;
+    ros::Publisher                       pubDist;
+    ros::Publisher                       pubTraj;
+    ros::Publisher                       pubTrajInterpolated;
+
 
     std::vector<int> markerIds;
     std::vector<std::vector<cv::Point2f>> markerCorners;
 
-    std::vector<geometry_msgs::PoseWithCovarianceStamped> estimatedPoses;
+    std::vector<geometry_msgs::PoseWithCovarianceStamped> estimatedPoses;                        // Only for 10 markers. Use the marker id to access the pose
     std::deque<std::vector<geometry_msgs::PoseWithCovarianceStamped>> posesCov;
     Distribution distribution;
 
-    float beta;
+    float beta = 0.0;
     float markerLength;
+    bool publishBeta;
+    int nJointDensity;
+    int nPoses;
 
     Detector(std::string filename) : Camera(filename){};
 };

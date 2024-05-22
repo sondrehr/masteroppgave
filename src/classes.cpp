@@ -3,10 +3,7 @@
 
 #include <precision_landing/myAprilTagDetectionArray.h>
 #include <precision_landing/distribution.h>
-
-#include <tf2_msgs/TFMessage.h>
-
-
+#include <precision_landing/trajectoryInterpolated.h>
 
 void arucoDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg)
 {   
@@ -14,13 +11,12 @@ void arucoDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
     detectMarkersAruco(this, inputImage);
     getPoseAruco(this);
-    if (estimateState)       {stateEstimation(this);}
-    if (publishImage)        {drawMarkers(this, inputImage);}
-    if (publishDistribution) {getDistribution(this, 100);}
-    if (publishPose)         {publishTF(this);}
-    if (publishTrajectory)   {getTrajectory(this);}
+    if (getParams<bool>(this->nh, "/aruco/estimateState"))       {estimateState(this);}
+    if (getParams<bool>(this->nh, "/aruco/publishImage"))        {publishImage(this, inputImage);}
+    if (getParams<bool>(this->nh, "/aruco/publishDistribution")) {publishDistribution(this, 100);}                  //only for one marker
+    if (getParams<bool>(this->nh, "/aruco/publishTF"))           {publishTF(this);}
+    if (getParams<bool>(this->nh, "/aruco/publishTrajectory"))   {publishTrajectory(this);}                         //only for one marker
 }
-
 
 void aprilDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg, const precision_landing::myAprilTagDetectionArrayConstPtr& detections)
 {
@@ -28,45 +24,46 @@ void aprilDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg, const p
 
     getMarkersApril(this, detections);
     getPoseApril(this, detections);
-    if (estimateState)       {stateEstimation(this);}
-    if (publishImage)        {drawMarkers(this, inputImage);}
-    if (publishDistribution) {getDistribution(this, 100);}
-    if (publishPose)         {publishTF(this);}
-    if (publishTrajectory)   {getTrajectory(this);}
+    if (getParams<bool>(this->nh, "/april/estimateState"))       {estimateState(this);}   
+    if (getParams<bool>(this->nh, "/april/publishImage"))        {publishImage(this, inputImage);}
+    if (getParams<bool>(this->nh, "/april/publishDistribution")) {publishDistribution(this, 100);}                  //only for one marker
+    if (getParams<bool>(this->nh, "/april/publishTF"))           {publishTF(this);}
+    if (getParams<bool>(this->nh, "/april/publishTrajectory"))   {publishTrajectory(this);}                         //only for one marker
 }
+
 
 
 arucoDetector::arucoDetector(ros::NodeHandle &nh) : Detector(getParams<std::string>(nh, "/aruco/cameraParams"))
 {
-    subImg = image_transport::ImageTransport(nh).subscribe("/cam0_rect/cam0", 1, &arucoDetector::imageCallback, this);
+    this->nh                = nh;
+    subImg                  = image_transport::ImageTransport(nh).subscribe("/cam0_rect/cam0", 1, &arucoDetector::imageCallback, this);
+    pubImg                  = image_transport::ImageTransport(nh).advertise("/aruco/image", 1);
+    pubDist                 = nh.advertise<precision_landing::distribution>("/aruco/dist", 1);
+    pubTraj                 = nh.advertise<trajectory_msgs::MultiDOFJointTrajectory>("/aruco/trajectory", 1);
+    pubTrajInterpolated     = nh.advertise<geometry_msgs::PoseArray>("/aruco/trajectoryInterpolated", 1);
 
-    pubImg = image_transport::ImageTransport(nh).advertise("/aruco/image", 1);
-    pubDist = nh.advertise<precision_landing::distribution>("/aruco/dist", 1);
-
-    markerLength        = getParams<float>(nh, "/aruco/markerSize");
-    beta                = 0.0;
-
-    estimateState       = getParams<bool>(nh, "/aruco/estimateState");
-    publishImage        = getParams<bool>(nh, "/aruco/publishImage");
-    publishDistribution = getParams<bool>(nh, "/aruco/publishDistribution");
-    publishPose         = getParams<bool>(nh, "/aruco/publishPose");
-    publishTrajectory   = getParams<bool>(nh, "/aruco/publishTrajectory");
+    markerLength     = getParams<float>(nh, "/aruco/markerSize");
+    publishBeta      = getParams<bool>(nh, "/aruco/publishBeta");
+    nJointDensity    = getParams<int>(nh, "/aruco/nJointDensity");
+    nPoses           = getParams<int>(nh, "/aruco/nPoses");
+    estimatedPoses.resize(nPoses);
     
     if      (getParams<std::string>(nh, "aruco/dictionary") == "4X4") {dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);}
     else if (getParams<std::string>(nh, "aruco/dictionary") == "5X5") {dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_5X5_50);}
     else if (getParams<std::string>(nh, "aruco/dictionary") == "6X6") {dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_50);}   
 }
+
 aprilDetector::aprilDetector(ros::NodeHandle &nh) : Detector(getParams<std::string>(nh, "/april/cameraParams"))
 {
-    pubImg = image_transport::ImageTransport(nh).advertise("/april/image", 1);
-    pubDist = nh.advertise<precision_landing::distribution>("/april/dist", 1);
+    this->nh                = nh;
+    pubImg                  = image_transport::ImageTransport(nh).advertise("/april/image", 1);
+    pubDist                 = nh.advertise<precision_landing::distribution>("/april/dist", 1);
+    pubTraj                 = nh.advertise<trajectory_msgs::MultiDOFJointTrajectory>("/april/trajectory", 1);
+    pubTrajInterpolated     = nh.advertise<geometry_msgs::PoseArray>("/april/trajectoryInterpolated", 1);
 
-    markerLength        = getParams<float>(nh, "/april/markerSize");
-    beta                = 0.0;
-
-    estimateState       = getParams<bool>(nh, "/april/estimateState");
-    publishImage        = getParams<bool>(nh, "/april/publishImage");
-    publishDistribution = getParams<bool>(nh, "/april/publishDistribution");
-    publishPose         = getParams<bool>(nh, "/april/publishPose");
-    publishTrajectory   = getParams<bool>(nh, "/april/publishTrajectory");
+    markerLength     = getParams<float>(nh, "/april/markerSize");
+    publishBeta      = getParams<bool>(nh, "/april/publishBeta");
+    nJointDensity    = getParams<int>(nh, "/april/nJointDensity");
+    nPoses           = getParams<int>(nh, "/april/nPoses");
+    estimatedPoses.resize(nPoses);
 }

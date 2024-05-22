@@ -12,9 +12,11 @@
 
 template <typename T> T getParams(ros::NodeHandle &nh, std::string param);
 template <class T> void getBeta(T* detector);
-template <class T> void getDistribution(T* detector, int nPoses);
-template <class T> void drawMarkers(T* detector, cv::Mat& outputImage);
+template <class T> void publishDistribution(T* detector, int nPoses);
+template <class T> void publishImage(T* detector, cv::Mat& outputImage);
 template <class T> void publishTF(T* detector);
+template <class T> void publishTrajectory(T* detector);
+template <class T> void estimateState(T* detector);
 
 void detectMarkersAruco(arucoDetector* detector, cv::Mat& inputImage);
 void getPoseAruco(arucoDetector* detector);

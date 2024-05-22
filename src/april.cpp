@@ -1,6 +1,6 @@
 #include <ros/ros.h>
+
 #include <sensor_msgs/Image.h>
-//#include <opencv2/opencv.hpp>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 
