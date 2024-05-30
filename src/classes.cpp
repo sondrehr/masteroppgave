@@ -4,6 +4,7 @@
 #include <precision_landing/myAprilTagDetectionArray.h>
 #include <precision_landing/distribution.h>
 #include <precision_landing/trajectoryInterpolated.h>
+#include <precision_landing/estimate.h>
 
 void arucoDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg)
 {   
@@ -41,9 +42,12 @@ arucoDetector::arucoDetector(ros::NodeHandle &nh) : Detector(getParams<std::stri
     pubDist                 = nh.advertise<precision_landing::distribution>("/aruco/dist", 1);
     pubTraj                 = nh.advertise<trajectory_msgs::MultiDOFJointTrajectory>("/aruco/trajectory", 1);
     pubTrajInterpolated     = nh.advertise<geometry_msgs::PoseArray>("/aruco/trajectoryInterpolated", 1);
+    servEstimate            = nh.serviceClient<precision_landing::estimate>("/estimate_state");
 
     markerLength     = getParams<float>(nh, "/aruco/markerSize");
     publishBeta      = getParams<bool>(nh, "/aruco/publishBeta");
+    pathInt          = getParams<std::string>(nh, "/aruco/pathInt");
+    rotInt           = getParams<std::string>(nh, "/aruco/rotInt");
     nJointDensity    = getParams<int>(nh, "/aruco/nJointDensity");
     nPoses           = getParams<int>(nh, "/aruco/nPoses");
     estimatedPoses.resize(nPoses);
@@ -60,9 +64,12 @@ aprilDetector::aprilDetector(ros::NodeHandle &nh) : Detector(getParams<std::stri
     pubDist                 = nh.advertise<precision_landing::distribution>("/april/dist", 1);
     pubTraj                 = nh.advertise<trajectory_msgs::MultiDOFJointTrajectory>("/april/trajectory", 1);
     pubTrajInterpolated     = nh.advertise<geometry_msgs::PoseArray>("/april/trajectoryInterpolated", 1);
+    servEstimate            = nh.serviceClient<precision_landing::estimate>("/estimate_state");
 
     markerLength     = getParams<float>(nh, "/april/markerSize");
     publishBeta      = getParams<bool>(nh, "/april/publishBeta");
+    pathInt          = getParams<std::string>(nh, "/april/pathInt");
+    rotInt           = getParams<std::string>(nh, "/april/rotInt");
     nJointDensity    = getParams<int>(nh, "/april/nJointDensity");
     nPoses           = getParams<int>(nh, "/april/nPoses");
     estimatedPoses.resize(nPoses);

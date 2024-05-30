@@ -1,3 +1,0 @@
-trajectory_msgs/MultiDOFJointTrajectory trajectory_srv
----
-bool flag

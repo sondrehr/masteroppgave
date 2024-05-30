@@ -1,5 +1,6 @@
 #include <precision_landing/distribution.h>
 #include <precision_landing/trajectoryInterpolated.h>
+#include <precision_landing/estimate.h>
 #include "lie.h"
 #include <iostream>
 
@@ -7,7 +8,6 @@
 #include <geometry_msgs/Transform.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Point.h>
-//#include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <trajectory_msgs/MultiDOFJointTrajectory.h>
@@ -20,8 +20,19 @@
 template <class T>
 void estimateState(T* detector)
 {
-    //Implement kalman filter and IPDA??
-    std::vector<geometry_msgs::PoseWithCovarianceStamped> prevPoses = detector->estimatedPoses;
+    if (detector->markerIds.size() != 1) {return;}
+
+    precision_landing::estimate srv;
+    srv.request.poseIn = detector->posesCov.back().at(0);
+
+    if(detector->servEstimate.call(srv))
+    {
+        detector->posesCov.back().at(0) = srv.response.poseOut;
+    }
+    else
+    {
+        ROS_ERROR("Failed to call service estimateState");
+    }     
 }
 
 template <class T>
@@ -29,49 +40,41 @@ void publishTrajectory(T* detector)
 {
     if (detector->markerIds.size() != 1) {return;}     /// Maybe change to multiple markers??? use:    for (size_t i = 0; i < detector->markerIds.size(); i++){trajectory.joint_names.push_back("tag_" + std::to_string(detector->markerIds.at(i)) + "_joint)
 
-    cv::Point3f closestPoint, dronePos, endPos;
-    closestPoint.x = 0;
-    closestPoint.y = 0;
-    closestPoint.z = detector->posesCov.back().at(0).pose.pose.position.z;
+    //Move the pose to the platform coordinate system
+    Sophus::SE3d T_cam_tag = quaternion2sophus(detector->posesCov.back().at(0));
+    
+    Eigen::Matrix4d T_plat_cam = Eigen::Matrix4d::Identity();
+    T_plat_cam.block<3,3>(0,0) = Eigen::AngleAxisd(-M_PI/2, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    T_plat_cam.block<3,1>(0,3) = Eigen::Vector3d(0.099, 0, 0);
 
-    dronePos.x = detector->posesCov.back().at(0).pose.pose.position.x;
-    dronePos.y = detector->posesCov.back().at(0).pose.pose.position.y;
-    dronePos.z = detector->posesCov.back().at(0).pose.pose.position.z;
+    Eigen::Matrix4d T_tag_drone = Eigen::Matrix4d::Identity();
+    T_tag_drone.block<3,3>(0,0) = Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitX()).toRotationMatrix();
 
-    endPos.x = 0;
-    endPos.y = 0;
-    endPos.z = 0;
+    Sophus::SE3d dronePose = Sophus::SE3d::fitToSE3(T_plat_cam)*T_cam_tag*Sophus::SE3d::fitToSE3(T_tag_drone);
+    
+    //Define the interpolation points
+    cv::Point3f closestPoint(0, 0, dronePose.translation()[2]);
+    cv::Point3f dronePos(dronePose.translation()[0], dronePose.translation()[1], dronePose.translation()[2]);
+    cv::Point3f endPos(0, 0, 0);
 
-    uint16_t nJointLateral = cv::norm(closestPoint - dronePos)*detector->nJointDensity;
+    double distance = cv::norm(closestPoint - dronePos);
+    uint16_t nJointLateral = distance*detector->nJointDensity;
     uint16_t nJointVertical = dronePos.z*detector->nJointDensity;
     uint16_t nJointDirect = cv::norm(endPos - dronePos)*detector->nJointDensity;
-
-    //Test
-    /////////////////////////////////////////////////
-    Eigen::Matrix3d R;
-    Eigen::Vector3d t_closest;
-    Eigen::Vector3d t_end;
-    R << 1, 0, 0,
-         0, 1, 0,
-         0, 0, 1;
-
-    t_closest << 0, 0, detector->posesCov.back().at(0).pose.pose.position.z;
-    t_end << 0, 0, 0;
     
-    Eigen::Matrix4d T_closestPoseMatrix;
-    T_closestPoseMatrix.block<3,3>(0,0) = R;
+    //Define the poses at the interpolation points
+    Eigen::Vector3d t_closest(0, 0, closestPoint.z);
+    Eigen::Matrix4d T_closestPoseMatrix = Eigen::Matrix4d::Identity();
     T_closestPoseMatrix.block<3,1>(0,3) = t_closest;
-    T_closestPoseMatrix.row(3) << 0, 0, 0, 1;
 
-    Eigen::Matrix4d T_endPoseMatrix;
-    T_endPoseMatrix.block<3,3>(0,0) = R;
-    T_endPoseMatrix.block<3,1>(0,3) = t_end;
-    T_endPoseMatrix.row(3) << 0, 0, 0, 1;
+    Eigen::Matrix4d T_endPoseMatrix = Eigen::Matrix4d::Identity();
 
-    Sophus::SE3d dronePose = quaternion2sophus(detector->posesCov.back().at(0));
     Sophus::SE3d closestPose = Sophus::SE3d::fitToSE3(T_closestPoseMatrix);
     Sophus::SE3d endPose = Sophus::SE3d::fitToSE3(T_endPoseMatrix);
-    /////////////////////////////////////////////////        
+
+    //Get the yaw of the drone
+    Eigen::Vector3d x_axis_drone = dronePose.so3().unit_quaternion().toRotationMatrix().col(0);           
+    double yaw = atan2(x_axis_drone[1], x_axis_drone[0]);
 
     //Objects to be published
     trajectory_msgs::MultiDOFJointTrajectory trajectory;
@@ -81,236 +84,109 @@ void publishTrajectory(T* detector)
     geometry_msgs::PoseArray trajectory_interpolated;
     trajectory_interpolated.header.frame_id = "platform";
 
-    std::string path = "straight";
-
-    if (path=="straight")
+    //Interpolate the trajectory
+    for(uint16_t i = 0; i < nJointDirect; i++)
     {
-        for(uint16_t i = 0; i < nJointDirect; i++)
+        double time = (float)i/(float)nJointDirect;
+
+        //Rotation
+        Eigen::Matrix3d R;
+        if (detector->rotInt=="yaw")
         {
-            trajectory_msgs::MultiDOFJointTrajectoryPoint point;
-            geometry_msgs::Pose pose;
-
-            Sophus::SE3d interpolatedPose;
-
-            /////////////////////////////////////////////////
-
-            point.time_from_start = ros::Duration((float)i*1.5);
-            point.transforms.resize(1);
-            point.velocities.resize(1);
-            point.accelerations.resize(1);
-
-            //t
-            /*
-            point.transforms[0].translation.x = (1-(float)i/(float)nJointDirect)*dronePos.x;
-            point.transforms[0].translation.y = (1-(float)i/(float)nJointDirect)*dronePos.y;
-            point.transforms[0].translation.z = (1-(float)i/(float)nJointDirect)*dronePos.z;
-
-            pose.position.x = (1-(float)i/(float)nJointDirect)*dronePos.x;
-            pose.position.y = (1-(float)i/(float)nJointDirect)*dronePos.y;
-            pose.position.z = (1-(float)i/(float)nJointDirect)*dronePos.z;
-            */
-
-            //R
-            Eigen::Vector3d x_axis_drone = dronePose.so3().unit_quaternion().toRotationMatrix().col(0);
-            x_axis_drone[2] = 0;
-            Eigen::Vector3d x_axis_platform;
-            x_axis_platform << 1, 0, 0;
-
-            double yaw = atan2(x_axis_drone[1], x_axis_drone[0]);
-            
             Eigen::Matrix3d R_yaw;
-            Eigen::Vector3d t;
+            R_yaw << std::cos((1-time)*yaw), -std::sin((1-time)*yaw), 0,
+                    std::sin((1-time)*yaw),  std::cos((1-time)*yaw), 0,
+                    0, 0, 1;
 
-            R_yaw << std::cos((1-(float)i/(float)nJointLateral)*yaw), -std::sin((1-(float)i/(float)nJointLateral)*yaw), 0,
-                     std::sin((1-(float)i/(float)nJointLateral)*yaw),  std::cos((1-(float)i/(float)nJointLateral)*yaw), 0,
-                     0, 0, 1;
-
-            t[0] = (1-(float)i/(float)nJointDirect)*dronePos.x;
-            t[1] = (1-(float)i/(float)nJointDirect)*dronePos.y;
-            t[2] = (1-(float)i/(float)nJointDirect)*dronePos.z;
-
-            Eigen::Matrix4d T_interpolatedPoseMatrix;
-            T_interpolatedPoseMatrix.block<3,3>(0,0) = R_yaw;
-            T_interpolatedPoseMatrix.block<3,1>(0,3) = t;
-            T_interpolatedPoseMatrix.row(3) << 0, 0, 0, 1;
-            
-            interpolatedPose = Sophus::SE3d::fitToSE3(T_interpolatedPoseMatrix);
-
-            geometry_msgs::PoseWithCovarianceStamped pointPose;
-            pointPose.pose.pose.position.x = interpolatedPose.translation()[0];
-            pointPose.pose.pose.position.y = interpolatedPose.translation()[1];
-            pointPose.pose.pose.position.z = interpolatedPose.translation()[2];
-            pointPose.pose.pose.orientation.w = interpolatedPose.unit_quaternion().w();
-            pointPose.pose.pose.orientation.x = interpolatedPose.unit_quaternion().x();
-            pointPose.pose.pose.orientation.y = interpolatedPose.unit_quaternion().y();
-            pointPose.pose.pose.orientation.z = interpolatedPose.unit_quaternion().z();
-            
-            point.transforms[0].translation.x = pointPose.pose.pose.position.x;
-            point.transforms[0].translation.y = pointPose.pose.pose.position.y;
-            point.transforms[0].translation.z = pointPose.pose.pose.position.z;
-            point.transforms[0].rotation = pointPose.pose.pose.orientation;
-            trajectory.points.push_back(point);
-
-            pose.position.x = pointPose.pose.pose.position.x;
-            pose.position.y = pointPose.pose.pose.position.y;
-            pose.position.z = pointPose.pose.pose.position.z;
-            pose.orientation = pointPose.pose.pose.orientation;
-            trajectory_interpolated.poses.push_back(pose);
+            R = R_yaw;
         }
-    }
-
-
-    //
-
-
-    /*
-
-    if (distance > 0.05)
-    {
-        for(uint16_t i = 0; i < nJointLateral; i++)
+        else if (detector->rotInt=="rotMat")
         {
-            trajectory_msgs::MultiDOFJointTrajectoryPoint point;
-            geometry_msgs::Pose pose;
+            Sophus::SO3d R_drone = dronePose.so3();
+            Sophus::SO3d R_end = endPose.so3();
 
-            /////////////////////////////////////////////////
-
-            point.time_from_start = ros::Duration((float)i*1.5);
-            point.transforms.resize(1);
-            point.velocities.resize(1);
-            point.accelerations.resize(1);
-
-            point.transforms[0].translation.x = dronePos.x + (closestPoint.x - dronePos.x)*i/nJointLateral;
-            point.transforms[0].translation.y = dronePos.y + (closestPoint.y - dronePos.y)*i/nJointLateral;
-            point.transforms[0].translation.z = dronePos.z;
-            //trajectory.points.push_back(point);
-
-            pose.position.x = dronePos.x + (closestPoint.x - dronePos.x)*i/nJointLateral;
-            pose.position.y = dronePos.y + (closestPoint.y - dronePos.y)*i/nJointLateral;
-            pose.position.z = dronePos.z;
-            //trajectory_interpolated.poses.push_back(pose);
-
-            //Test
-            /////////////////////////////////////////////////
-            Sophus::SE3d::Tangent update = (dronePose.inverse()*closestPose).log();
-            Sophus::SE3d interpolatedPose = dronePose*Sophus::SE3d::exp(update*(float)i/(float)nJointLateral);
-
-
-    /*
-            //Interpolation yaw
-            /////////////////////////////////////////////////
-            Eigen::Vector3d x_axis_drone = dronePose.so3().unit_quaternion().toRotationMatrix().col(0);
-            x_axis_drone[2] = 0;
-            Eigen::Vector3d x_axis_platform;
-            x_axis_platform << 1, 0, 0;
-
-            double yaw = atan2(x_axis_drone[1], x_axis_drone[0]);
-            
-            Eigen::Matrix3d R_yaw;
-            Eigen::Vector3d t;
-
-            R_yaw << std::cos((1-(float)i/(float)nJointLateral)*yaw), -std::sin((1-(float)i/(float)nJointLateral)*yaw), 0,
-                     std::sin((1-(float)i/(float)nJointLateral)*yaw),  std::cos((1-(float)i/(float)nJointLateral)*yaw), 0,
-                     0, 0, 1;
-
-            t[0] = dronePos.x + (closestPoint.x - dronePos.x)*i/nJointLateral;
-            t[1] = dronePos.y + (closestPoint.y - dronePos.y)*i/nJointLateral;
-            t[2] = dronePos.z;
-
-            interpolatedPose = Sophus::SE3d(R_yaw, t);
-            /////////////////////////////////////////////////
-    */
-
-    /*
-            //Interpolation Lie R,t corrected
-            /////////////////////////////////////////////////        
-            Sophus::SO3d R = interpolatedPose.so3();
-            Eigen::Vector3d t = interpolatedPose.translation();
-
-            Sophus::SO3d::Tangent rvec = R.log();
-
-            rvec[0] = 0;
-            rvec[1] = 0;
-            t[2] = dronePos.z;
-
-            R = Sophus::SO3d::exp(rvec);
-
-            interpolatedPose = Sophus::SE3d(R, t);
-            /////////////////////////////////////////////////
-    */
-
-
-    /*
-            //Interpolation Lie R, regular t
-            /////////////////////////////////////////////////        
-            Sophus::SO3d R = interpolatedPose.so3();
-            Eigen::Vector3d t = interpolatedPose.translation();
-
-            Sophus::SO3d::Tangent rvec = R.log();
-
-            rvec[0] = 0;
-            rvec[1] = 0;
-
-            R = Sophus::SO3d::exp(rvec);
-
-            t[0] = dronePos.x + (closestPoint.x - dronePos.x)*i/nJointLateral;
-            t[1] = dronePos.y + (closestPoint.y - dronePos.y)*i/nJointLateral;
-            t[2] = dronePos.z;
-
-            interpolatedPose = Sophus::SE3d(R, t);
-    
-            /////////////////////////////////////////////////
-    */
-
-    /*
-            geometry_msgs::PoseWithCovarianceStamped pointPose;
-            pointPose.pose.pose.position.x = interpolatedPose.translation()[0];
-            pointPose.pose.pose.position.y = interpolatedPose.translation()[1];
-            pointPose.pose.pose.position.z = interpolatedPose.translation()[2];
-            pointPose.pose.pose.orientation.w = interpolatedPose.unit_quaternion().w();
-            pointPose.pose.pose.orientation.x = interpolatedPose.unit_quaternion().x();
-            pointPose.pose.pose.orientation.y = interpolatedPose.unit_quaternion().y();
-            pointPose.pose.pose.orientation.z = interpolatedPose.unit_quaternion().z();
-            
-            point.transforms[0].translation.x = pointPose.pose.pose.position.x;
-            point.transforms[0].translation.y = pointPose.pose.pose.position.y;
-            point.transforms[0].translation.z = pointPose.pose.pose.position.z;
-            point.transforms[0].rotation = pointPose.pose.pose.orientation;
-            trajectory.points.push_back(point);
-
-            pose.position.x = pointPose.pose.pose.position.x;
-            pose.position.y = pointPose.pose.pose.position.y;
-            pose.position.z = pointPose.pose.pose.position.z;
-            pose.orientation = pointPose.pose.pose.orientation;
-            trajectory_interpolated.poses.push_back(pose);
-            
-            /////////////////////////////////////////////////
+            R = (R_drone*Sophus::SO3d::exp((R_drone.inverse()*R_end).log()*time)).matrix();
         }
-    }
+        
+        //Translation
+        Eigen::Vector3d t;
+        if (detector->pathInt=="straight")
+        {
+            t[0] = dronePos.x + time*(endPos.x - dronePos.x);
+            t[1] = dronePos.y + time*(endPos.y - dronePos.y);
+            t[2] = dronePos.z + time*(endPos.z - dronePos.z);
+        } 
+        else if (detector->pathInt=="bezier")
+        {
+            Eigen::Vector3d p0(dronePos.x, dronePos.y, dronePos.z);
+            Eigen::Vector3d p1(closestPoint.x, closestPoint.y, closestPoint.z);
+            Eigen::Vector3d p2(endPos.x, endPos.y, endPos.z);
 
-    for(uint16_t i = 0; i <= nJointVertical; i++)
-    {
+            Eigen::Vector3d p01 = p0 + time*(p1 - p0);
+            Eigen::Vector3d p12 = p1 + time*(p2 - p1);
+            t = p01 + time*(p12 - p01);
+        }
+        else if (detector->pathInt=="rth")
+        {
+            if ((float)nJointLateral/(nJointLateral+nJointVertical) > (float)i/nJointDirect)
+            {
+                double timeLat = ((float)i/nJointDirect)/((float)nJointLateral/(nJointLateral+nJointVertical));
+                t[0] = dronePos.x + timeLat*(closestPoint.x - dronePos.x);
+                t[1] = dronePos.y + timeLat*(closestPoint.y - dronePos.y);
+                t[2] = dronePos.z;
+            }
+            else
+            {
+                double timeVert = ((float)i/nJointDirect - (float)nJointLateral/(nJointLateral+nJointVertical))/((float)nJointVertical/(nJointLateral+nJointVertical));
+                t[0] = 0;
+                t[1] = 0;
+                t[2] = closestPoint.z + timeVert*(endPos.z - closestPoint.z);
+            }
+        }
+
+        //Create interpolated pose
+        Eigen::Matrix4d T_interpolatedPoseMatrix = Eigen::Matrix4d::Identity();
+        T_interpolatedPoseMatrix.block<3,3>(0,0) = R;
+        T_interpolatedPoseMatrix.block<3,1>(0,3) = t;
+        Sophus::SE3d interpolatedPose = Sophus::SE3d::fitToSE3(T_interpolatedPoseMatrix);
+
+        if(detector->pathInt=="full") {interpolatedPose = dronePose*Sophus::SE3d::exp((dronePose.inverse()*endPose).log()*time);}
+        else if(detector->pathInt=="full_bezier")
+        {
+            Sophus::SE3d p0 = dronePose;
+            Sophus::SE3d p1 = closestPose;
+            Sophus::SE3d p2 = endPose;
+
+            Sophus::SE3d p01 = p0*Sophus::SE3d::exp((p0.inverse()*p1).log()*time);
+            Sophus::SE3d p12 = p1*Sophus::SE3d::exp((p1.inverse()*p2).log()*time);
+            interpolatedPose = p01*Sophus::SE3d::exp((p01.inverse()*p12).log()*time);
+        }
+
+        //Create message
         trajectory_msgs::MultiDOFJointTrajectoryPoint point;
-        geometry_msgs::Pose pose;
-        if (distance > 0.05) {point.time_from_start = ros::Duration((float)nJointLateral*1.5 + (float)i*1.5);}
-        else                 {point.time_from_start = ros::Duration((float)i*1.5);}
-
+        point.time_from_start = ros::Duration((float)i*1.5);
         point.transforms.resize(1);
-        point.velocities.resize(1);
-        point.accelerations.resize(1);
+        //point.velocities.resize(1);
+        //point.accelerations.resize(1);
+        point.transforms[0].translation.x = interpolatedPose.translation()[0];
+        point.transforms[0].translation.y = interpolatedPose.translation()[1];
+        point.transforms[0].translation.z = interpolatedPose.translation()[2];
+        point.transforms[0].rotation.w = interpolatedPose.unit_quaternion().w();
+        point.transforms[0].rotation.x = interpolatedPose.unit_quaternion().x();
+        point.transforms[0].rotation.y = interpolatedPose.unit_quaternion().y();
+        point.transforms[0].rotation.z = interpolatedPose.unit_quaternion().z();
+        trajectory.points.push_back(point);
 
-        point.transforms[0].translation.x = 0;
-        point.transforms[0].translation.y = 0;
-        point.transforms[0].translation.z = (1-(float)i/(float)nJointVertical)*dronePos.z;
-
-        pose.position.x = 0;
-        pose.position.y = 0;
-        pose.position.z = (1-(float)i/(float)nJointVertical)*dronePos.z;
-
+        geometry_msgs::Pose pose;
+        pose.position.x = point.transforms[0].translation.x;
+        pose.position.y = point.transforms[0].translation.y;
+        pose.position.z = point.transforms[0].translation.z;
+        pose.orientation.w = point.transforms[0].rotation.w;
+        pose.orientation.x = point.transforms[0].rotation.x;
+        pose.orientation.y = point.transforms[0].rotation.y;
+        pose.orientation.z = point.transforms[0].rotation.z;
         trajectory_interpolated.poses.push_back(pose);
     }
-
-    */
-
     detector->pubTraj.publish(trajectory);
     detector->pubTrajInterpolated.publish(trajectory_interpolated);
 }

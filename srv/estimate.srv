@@ -1,0 +1,3 @@
+geometry_msgs/PoseWithCovarianceStamped poseIn
+---
+geometry_msgs/PoseWithCovarianceStamped poseOut

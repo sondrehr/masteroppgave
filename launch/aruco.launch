@@ -31,6 +31,9 @@
     <param name="nJointDensity" value="5"/>                       <!-- ~Number of joints in the trajectory per meter -->
 
     <param name="nPoses" value="10"/>                             <!-- Number of poses to be estimated in the KF. MUST BE CHANGED IF USING AN ID > VALUE -->
+    <param name="pathInt" value="segment"/>                       <!-- Type of interpolation to be used on the path. Options: segment, bezier, straight -->
+    <param name="rotInt" value="rotMat"/>                         <!-- Type of interpolation to be used on the rotation. Options: rotMat, yaw -->
+
 
     <!-- Publish topics -->
     <param name="publishImage" value="true"/>                     <!-- Publish image with pose. Faster when off -->

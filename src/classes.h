@@ -42,7 +42,7 @@ public:
     ros::Publisher                       pubDist;
     ros::Publisher                       pubTraj;
     ros::Publisher                       pubTrajInterpolated;
-
+    ros::ServiceClient                   servEstimate;
 
     std::vector<int> markerIds;
     std::vector<std::vector<cv::Point2f>> markerCorners;
@@ -53,9 +53,14 @@ public:
 
     float beta = 0.0;
     float markerLength;
+    uint64_t timePrev;
+    
     bool publishBeta;
+    bool estimateStateBool = false;
     int nJointDensity;
     int nPoses;
+    std::string pathInt;
+    std::string rotInt;
 
     Detector(std::string filename) : Camera(filename){};
 };

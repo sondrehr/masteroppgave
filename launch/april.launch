@@ -6,11 +6,14 @@
   <include file="$(find apriltag_ros)/launch/continuous_detection.launch"/>
 
   <!-- broadcast transforms -->
-  <node name="tf2_platform_cam" pkg="tf2_ros" type="static_transform_publisher" args="0.099 0 0 0 0 0 /platform /cam" />
-  <node name="tf2_april_drone" pkg="tf2_ros" type="static_transform_publisher" args="0 0 -0.15 0 0 pi /aprilTag_4 /drone" />
+  <node name="tf2_platform_cam" pkg="tf2_ros" type="static_transform_publisher" args="0.099 0 0 -1.5707 0 0 /platform /cam" />
+  <node name="tf2_april_drone" pkg="tf2_ros" type="static_transform_publisher" args="0 0 -0.15 0 0 3.1415 /aprilTag_4 /drone" />
 
-  <!-- create a trajectory service -->
-  <node name="trajectory_service" pkg="precision_landing" output="screen" type="trajectory_service.py"/>
+  <!-- create a trajectory forwarder service -->
+  <node name="trajectory_forwarder" pkg="precision_landing" output="screen" type="trajectory_forwarder.py"/>
+
+  <!-- start the pose estimator -->
+  <node name="estimate_state" pkg="precision_landing" output="screen" type="estimate_state.py"/>
 
   <!-- rectify the image -->
   <node name="rectify" pkg="precision_landing" output="screen" type="rectify">
@@ -25,12 +28,15 @@
   <node name="april" pkg="precision_landing" output="screen" type="april">
     
     <param name="markerSize" value="0.056"/>                      <!-- Size of the marker in meters -->
-    <param name="estimateState" value="true"/>                    <!-- Estimate pose of the marker using KF?? -->
+    <param name="estimateState" value="true"/>                    <!-- Estimate pose of the marker using InEKF -->
     <param name="publishBeta" value="false"/>                     <!-- Publish beta in the same terminal the launch file is executed. Mostly needed for testing -->
 
-    <param name="nJointDensity" value="8"/>                       <!-- ~Number of joints in the trajectory per meter -->
+    <param name="nJointDensity" value="8"/>                       <!-- ish Number of joints in the trajectory per meter -->
     
-    <param name="nPoses" value="10"/>                             <!-- Number of poses to be estimated in the KF. MUST BE CHANGED IF USING AN ID > VALUE -->
+    <param name="nPoses" value="10"/>                             <!-- Number of poses to be estimated in the KF. MUST BE CHANGED IF ID>VALUE_OF_TAG -->
+    
+    <param name="pathInt" value="rth"/>                       <!-- Type of interpolation to be used on the path. Options: rth, bezier, straight, full, full_bezier -->
+    <param name="rotInt" value="yaw"/>                         <!-- Type of interpolation to be used on the rotation. Options: rotMat, yaw, full, full_bezier -->
 
     <!-- Publish topics -->
     <param name="publishImage" value="true"/>                     <!-- Publish image with pose. Faster when off -->
@@ -40,5 +46,6 @@
     
     <!-- Path to the camera calibration file -->
     <param name="cameraParams" value="../Desktop/catkin_ws/src/precision_landing/params.yaml" type="str"/>
+
   </node>
 </launch>
