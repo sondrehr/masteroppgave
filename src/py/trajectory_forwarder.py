@@ -17,7 +17,7 @@ def trajectory_callback(msg):
 def copy_trajectory_callback(req):
    global new_topic_publisher
 
-   new_topic_publisher = rospy.Publisher('new_topic', MultiDOFJointTrajectory, queue_size=10)
+   new_topic_publisher = rospy.Publisher('trajectory_forwarder', MultiDOFJointTrajectory, queue_size=10)
    return
 
 def main():

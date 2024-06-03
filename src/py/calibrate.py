@@ -72,7 +72,7 @@ def calibrate_camera():
         total_error += error
         per_image_errors.append(error)
 
-
+        #Calculate the error
         error_test = (image_points_list[i] - image_points).reshape(1, -1)
         error_squared = np.square(error_test)
         error_squared_sum = np.sum(error_squared)
@@ -81,11 +81,13 @@ def calibrate_camera():
         print("Error        : ", error_root/len(image_points))
         print("Error l2     : ", error)
 
+        #Calculate the rms error
         error_rms = np.sqrt(np.sum(error_squared)/len(image_points))
 
         print("Error rms    : ", error_rms)
         print("perViewErrors: ", perViewErrors[i][0])
 
+        #Calculate the error per point
         for j in range(len(image_points)):
             all_errors.append(cv2.norm(image_points_list[i][j], image_points[j], cv2.NORM_L2))
         

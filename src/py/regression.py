@@ -12,7 +12,7 @@ c_4 = np.array([9.27E-04, 5.93E-03, 8.12E-02, 6.87E-02, 4.21E-02, 1.19E-01])
 c_5 = np.array([6.86E-04, 3.21E-03, 4.90E-02, 1.25E-01, 8.90E-02, 1.27E-01])
 c_6 = np.array([1.66E-04, 3.28E-04, 1.40E-03, 1.64E-03, 2.24E-03, 3.32E-03])
 
-data = c_2
+data = c_6
 
 # interval from 0 to 6 with 0.1 step
 x_axis = np.arange(0, 6, 0.1).reshape(-1, 1)

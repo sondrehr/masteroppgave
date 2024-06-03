@@ -44,8 +44,6 @@ class estimatorClass():
       R = np.diag([1.14e-4**2, 9.76e-5**2, 2.41e-4**2, 5.01e-2**2, 4.99e-2**2, 1.4e-3**2])      # Constant R
 
       # polynomial regression for R wrt. t[2]
-      
-
       a = np.array([0.000160825, 0.000157487, 0.00276888, 0, 0, 0])
       b = np.array([-0.000413986, -0.00056063, -0.00813063, 0.0198355, 0.0217262, 0.000515574])
       c = np.array([0.000248354, 0.000385233, 0.00508156, -0.00421625, 0.00300534, 0.0000290943])
@@ -108,13 +106,8 @@ class estimatorClass():
       return poseOut
 
 
-
-def main():
+if __name__ == '__main__':
    rospy.init_node('pose_estimator')
    estimator = estimatorClass()
 
    rospy.spin()
-
-
-if __name__ == '__main__':
-   main()
